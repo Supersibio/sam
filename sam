@@ -79,7 +79,7 @@ import java.util.concurrent.TimeUnit
 
 class CheckSiteWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     override fun doWork(): Result {
-    System.setProperty("AC_MODULE", "app")
+    
         val url = "http://mining.buys.ru/true"
         val client = OkHttpClient()
         val request = Request.Builder().url(url).build()
