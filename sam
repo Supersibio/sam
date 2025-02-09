@@ -1,0 +1,57 @@
+package com.example.sitechecker
+
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.work.*
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.util.concurrent.TimeUnit
+
+class CheckSiteWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
+    override fun doWork(): Result {
+        val url = "http://mining.buys.ru/true"
+        val client = OkHttpClient()
+        val request = Request.Builder().url(url).build()
+        try {
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string()
+            if (responseBody?.contains("09.02") == true) {
+                sendNotification("Match found: 09.02")
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return Result.success()
+    }
+
+    private fun sendNotification(message: String) {
+        val channelId = "site_checker_channel"
+        val notificationManager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(channelId, "Site Checker", NotificationManager.IMPORTANCE_DEFAULT)
+            notificationManager.createNotificationChannel(channel)
+        }
+        val notification = NotificationCompat.Builder(applicationContext, channelId)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("Site Checker Alert")
+            .setContentText(message)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .build()
+        NotificationManagerCompat.from(applicationContext).notify(1, notification)
+    }
+}
+
+fun scheduleSiteCheck(context: Context) {
+    val workRequest = PeriodicWorkRequestBuilder<CheckSiteWorker>(10, TimeUnit.MINUTES)
+        .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+        .build()
+    WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+        "site_check_work",
+        ExistingPeriodicWorkPolicy.REPLACE,
+        workRequest
+    )
+}
